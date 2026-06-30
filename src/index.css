@@ -1,0 +1,35 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+
+body{
+  background: oklch(17.76% 0 0);
+  font-family: "Outfit", serif;
+  overflow-x: hidden;
+}
+
+
+
+.hoverElemet{
+  transition: all linear 0.3s;
+}
+.mainHover:hover .hoverElemet{
+  width: 100%;
+}
+
+
+.hoverdItem{
+  transition: all linear 0.3s;
+}
+
+.ImageHover:hover .hoverdItem{
+  height: 100%;
+}
+
+.okei{
+  height: 600px;
+}
