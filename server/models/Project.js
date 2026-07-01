@@ -21,6 +21,10 @@ const projectSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    tags: {
+      type: [String],
+      default: [],
+    },
     order: {
       type: Number,
       default: 0,

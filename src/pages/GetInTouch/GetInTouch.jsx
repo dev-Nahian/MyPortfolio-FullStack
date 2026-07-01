@@ -2,6 +2,7 @@ import { useState } from "react";
 import HeadingText from "../../component/Common/HeadingText/HeadingText";
 import HalfInputBox from "../../component/Common/Inputboxes/HalfInputBox";
 import { FaArrowRight } from "react-icons/fa";
+import { sendMessage } from "../../shared/api";
 
 const GetInTouch = () => {
   const [formData, setFormData] = useState({
@@ -32,45 +33,60 @@ const GetInTouch = () => {
     });
 
     try {
-      const response = await fetch("https://formsubmit.co/ajax/Alrafi321@icloud.com", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          message: formData.message,
-          _subject: "New Message from Portfolio Website",
-        }),
+      await sendMessage({
+        name: formData.name,
+        email: formData.email,
+        message: formData.message,
       });
 
-      const result = await response.json();
-
-      if (response.ok) {
-        setStatus({
-          submitted: true,
-          submitting: false,
-          info: { error: false, msg: "Thank you! Your message has been sent successfully." },
+      setStatus({
+        submitted: true,
+        submitting: false,
+        info: { error: false, msg: "Thank you! Your message has been sent successfully." },
+      });
+      setFormData({ name: "", email: "", message: "" });
+    } catch (error) {
+      // If backend fails, fallback to FormSubmit.co
+      try {
+        const response = await fetch("https://formsubmit.co/ajax/Alrafi321@icloud.com", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            name: formData.name,
+            email: formData.email,
+            message: formData.message,
+            _subject: "New Message from Portfolio Website (Fallback)",
+          }),
         });
-        setFormData({ name: "", email: "", message: "" });
-      } else {
+
+        if (response.ok) {
+          setStatus({
+            submitted: true,
+            submitting: false,
+            info: { error: false, msg: "Thank you! Your message has been sent successfully (via fallback server)." },
+          });
+          setFormData({ name: "", email: "", message: "" });
+        } else {
+          const result = await response.json();
+          setStatus({
+            submitted: false,
+            submitting: false,
+            info: { error: true, msg: result.message || "Something went wrong. Please try again." },
+          });
+        }
+      } catch (fallbackError) {
         setStatus({
           submitted: false,
           submitting: false,
-          info: { error: true, msg: result.message || "Something went wrong. Please try again." },
+          info: {
+            error: true,
+            msg: error.message || "Unable to connect to the server. Please try again later.",
+          },
         });
       }
-    } catch (error) {
-      setStatus({
-        submitted: false,
-        submitting: false,
-        info: {
-          error: true,
-          msg: "Unable to connect to the server. Please try again later.",
-        },
-      });
     }
   };
 

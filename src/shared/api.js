@@ -215,3 +215,195 @@ export const deleteProject = async (id) => {
   }
   return await res.json();
 };
+
+// Fallbacks for new features
+const fallbackSkills = [
+  { _id: "fs-1", name: "React", category: "Frontend", proficiency: 90, icon: "FaReact" },
+  { _id: "fs-2", name: "JavaScript", category: "Frontend", proficiency: 92, icon: "FaJsSquare" },
+  { _id: "fs-3", name: "Tailwind CSS", category: "Frontend", proficiency: 88, icon: "RiTailwindCssFill" },
+  { _id: "fs-4", name: "HTML5 & CSS3", category: "Frontend", proficiency: 95, icon: "FaHtml5" },
+];
+
+const fallbackExperiences = [
+  {
+    _id: "fe-1",
+    organization: "Softvence Digital Agency",
+    title: "Jr. Frontend Developer",
+    duration: "2023 - Present",
+    description: "Developed and maintained highly responsive, visual, and user-centric web applications utilizing React, TailwindCSS, and modern JS.",
+    type: "experience",
+    order: 1
+  },
+  {
+    _id: "fe-2",
+    organization: "University of Dhaka",
+    title: "B.Sc. in Computer Science",
+    duration: "2018 - 2022",
+    description: "Graduated with honors in Computer Science & Engineering.",
+    type: "education",
+    order: 3
+  }
+];
+
+// ==================== SKILLS API ====================
+export const getSkills = async () => {
+  try {
+    const res = await fetch(`${API_URL}/skills`);
+    if (!res.ok) throw new Error("Backend response error");
+    return await res.json();
+  } catch (error) {
+    console.warn("Backend not available. Using fallback skills data.", error);
+    return fallbackSkills;
+  }
+};
+
+export const createSkill = async (skillData) => {
+  const res = await fetch(`${API_URL}/skills`, {
+    method: "POST",
+    headers: getAuthHeaders({
+      "Content-Type": "application/json",
+    }),
+    body: JSON.stringify(skillData),
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.message || "Failed to create skill");
+  }
+  return await res.json();
+};
+
+export const updateSkill = async (id, skillData) => {
+  const res = await fetch(`${API_URL}/skills/${id}`, {
+    method: "PUT",
+    headers: getAuthHeaders({
+      "Content-Type": "application/json",
+    }),
+    body: JSON.stringify(skillData),
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.message || "Failed to update skill");
+  }
+  return await res.json();
+};
+
+export const deleteSkill = async (id) => {
+  const res = await fetch(`${API_URL}/skills/${id}`, {
+    method: "DELETE",
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.message || "Failed to delete skill");
+  }
+  return await res.json();
+};
+
+// ==================== EXPERIENCES API ====================
+export const getExperiences = async () => {
+  try {
+    const res = await fetch(`${API_URL}/experiences`);
+    if (!res.ok) throw new Error("Backend response error");
+    return await res.json();
+  } catch (error) {
+    console.warn("Backend not available. Using fallback experiences data.", error);
+    return fallbackExperiences;
+  }
+};
+
+export const createExperience = async (expData) => {
+  const res = await fetch(`${API_URL}/experiences`, {
+    method: "POST",
+    headers: getAuthHeaders({
+      "Content-Type": "application/json",
+    }),
+    body: JSON.stringify(expData),
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.message || "Failed to create experience");
+  }
+  return await res.json();
+};
+
+export const updateExperience = async (id, expData) => {
+  const res = await fetch(`${API_URL}/experiences/${id}`, {
+    method: "PUT",
+    headers: getAuthHeaders({
+      "Content-Type": "application/json",
+    }),
+    body: JSON.stringify(expData),
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.message || "Failed to update experience");
+  }
+  return await res.json();
+};
+
+export const deleteExperience = async (id) => {
+  const res = await fetch(`${API_URL}/experiences/${id}`, {
+    method: "DELETE",
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.message || "Failed to delete experience");
+  }
+  return await res.json();
+};
+
+// ==================== MESSAGES API ====================
+export const sendMessage = async (messageData) => {
+  const res = await fetch(`${API_URL}/messages`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(messageData),
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.message || "Failed to send message");
+  }
+  return await res.json();
+};
+
+export const getMessages = async () => {
+  const res = await fetch(`${API_URL}/messages`, {
+    method: "GET",
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.message || "Failed to retrieve messages");
+  }
+  return await res.json();
+};
+
+export const toggleMessageRead = async (id, read) => {
+  const res = await fetch(`${API_URL}/messages/${id}/read`, {
+    method: "PUT",
+    headers: getAuthHeaders({
+      "Content-Type": "application/json",
+    }),
+    body: JSON.stringify({ read }),
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.message || "Failed to update message status");
+  }
+  return await res.json();
+};
+
+export const deleteMessage = async (id) => {
+  const res = await fetch(`${API_URL}/messages/${id}`, {
+    method: "DELETE",
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.message || "Failed to delete message");
+  }
+  return await res.json();
+};

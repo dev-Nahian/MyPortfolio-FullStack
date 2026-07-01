@@ -1,13 +1,45 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { FaPlus, FaEdit, FaTrash, FaSave, FaArrowLeft, FaGlobe, FaEye } from "react-icons/fa";
-import { getProjects, createProject, updateProject, deleteProject, getProfile, updateProfile, getImageUrl } from "../../shared/api";
+import {
+  FaPlus,
+  FaEdit,
+  FaTrash,
+  FaSave,
+  FaArrowLeft,
+  FaGlobe,
+  FaEye,
+  FaEnvelope,
+  FaEnvelopeOpen,
+} from "react-icons/fa";
+import {
+  getProjects,
+  createProject,
+  updateProject,
+  deleteProject,
+  getProfile,
+  updateProfile,
+  getImageUrl,
+  getSkills,
+  createSkill,
+  updateSkill,
+  deleteSkill,
+  getExperiences,
+  createExperience,
+  updateExperience,
+  deleteExperience,
+  getMessages,
+  toggleMessageRead,
+  deleteMessage,
+} from "../../shared/api";
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("projects");
   const [projects, setProjects] = useState([]);
   const [profile, setProfile] = useState({});
+  const [skills, setSkills] = useState([]);
+  const [experiences, setExperiences] = useState([]);
+  const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState(null);
 
@@ -19,8 +51,9 @@ const AdminDashboard = () => {
     subtitle: "",
     link: "",
     order: "0",
+    tags: "",
     image: null,
-    imageUrl: "", // For textual url fallback
+    imageUrl: "",
   });
 
   // Profile form state
@@ -40,19 +73,59 @@ const AdminDashboard = () => {
     githubOfficialUser: "",
   });
 
+  // Skills form/modal state
+  const [showSkillModal, setShowSkillModal] = useState(false);
+  const [editingSkill, setEditingSkill] = useState(null);
+  const [skillForm, setSkillForm] = useState({
+    name: "",
+    category: "Frontend",
+    proficiency: "80",
+    icon: "FaReact",
+  });
+
+  // Experience form/modal state
+  const [showExperienceModal, setShowExperienceModal] = useState(false);
+  const [editingExperience, setEditingExperience] = useState(null);
+  const [experienceForm, setExperienceForm] = useState({
+    organization: "",
+    title: "",
+    duration: "",
+    description: "",
+    type: "experience",
+    order: "0",
+  });
+
+  // Selected message state (for detailed viewing modal)
+  const [selectedMessage, setSelectedMessage] = useState(null);
+
   // Fetch initial data
   const fetchData = async () => {
     setLoading(true);
     try {
       const projectsData = await getProjects();
       const profileData = await getProfile();
+      const skillsData = await getSkills();
+      const experiencesData = await getExperiences();
+
+      let messagesData = [];
+      try {
+        messagesData = await getMessages();
+      } catch (err) {
+        console.warn("Could not fetch messages:", err);
+      }
+
       setProjects(projectsData);
       setProfile(profileData);
+      setSkills(skillsData);
+      setExperiences(experiencesData);
+      setMessages(messagesData);
 
       // Populate profile form
       setProfileForm({
         name: profileData.name || "",
-        typewriterStrings: profileData.typewriterStrings ? profileData.typewriterStrings.join(", ") : "",
+        typewriterStrings: profileData.typewriterStrings
+          ? profileData.typewriterStrings.join(", ")
+          : "",
         intro: profileData.intro || "",
         aboutParagraph1: profileData.aboutParagraph1 || "",
         aboutParagraph2: profileData.aboutParagraph2 || "",
@@ -105,6 +178,7 @@ const AdminDashboard = () => {
       subtitle: "",
       link: "",
       order: (projects.length + 1).toString(),
+      tags: "",
       image: null,
       imageUrl: "",
     });
@@ -119,6 +193,7 @@ const AdminDashboard = () => {
       subtitle: project.subtitle || "",
       link: project.link || "",
       order: (project.order || 0).toString(),
+      tags: project.tags ? project.tags.join(", ") : "",
       image: null,
       imageUrl: project.image || "",
     });
@@ -133,6 +208,7 @@ const AdminDashboard = () => {
     formData.append("subtitle", projectForm.subtitle);
     formData.append("link", projectForm.link);
     formData.append("order", projectForm.order);
+    formData.append("tags", projectForm.tags);
 
     if (projectForm.image) {
       formData.append("image", projectForm.image);
@@ -199,12 +275,169 @@ const AdminDashboard = () => {
     }
   };
 
+  // Handle Skill Form Changes
+  const handleSkillFormChange = (e) => {
+    const { name, value } = e.target;
+    setSkillForm((prev) => ({ ...prev, [name]: value }));
+  };
 
+  const handleAddSkillClick = () => {
+    setEditingSkill(null);
+    setSkillForm({
+      name: "",
+      category: "Frontend",
+      proficiency: "80",
+      icon: "FaReact",
+    });
+    setShowSkillModal(true);
+  };
+
+  const handleEditSkillClick = (skill) => {
+    setEditingSkill(skill);
+    setSkillForm({
+      name: skill.name || "",
+      category: skill.category || "Frontend",
+      proficiency: (skill.proficiency || 80).toString(),
+      icon: skill.icon || "FaReact",
+    });
+    setShowSkillModal(true);
+  };
+
+  const handleSkillSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      if (editingSkill) {
+        await updateSkill(editingSkill._id, skillForm);
+        showNotification("Skill updated successfully!");
+      } else {
+        await createSkill(skillForm);
+        showNotification("Skill created successfully!");
+      }
+      setShowSkillModal(false);
+      fetchData();
+    } catch (error) {
+      console.error(error);
+      showNotification(error.message || "Failed to save skill", "error");
+    }
+  };
+
+  const handleDeleteSkill = async (id) => {
+    if (window.confirm("Are you sure you want to delete this skill?")) {
+      try {
+        await deleteSkill(id);
+        showNotification("Skill deleted successfully!");
+        fetchData();
+      } catch (error) {
+        showNotification(error.message || "Failed to delete skill", "error");
+      }
+    }
+  };
+
+  // Handle Experience Form Changes
+  const handleExperienceFormChange = (e) => {
+    const { name, value } = e.target;
+    setExperienceForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleAddExperienceClick = () => {
+    setEditingExperience(null);
+    setExperienceForm({
+      organization: "",
+      title: "",
+      duration: "",
+      description: "",
+      type: "experience",
+      order: (experiences.length + 1).toString(),
+    });
+    setShowExperienceModal(true);
+  };
+
+  const handleEditExperienceClick = (exp) => {
+    setEditingExperience(exp);
+    setExperienceForm({
+      organization: exp.organization || "",
+      title: exp.title || "",
+      duration: exp.duration || "",
+      description: exp.description || "",
+      type: exp.type || "experience",
+      order: (exp.order || 0).toString(),
+    });
+    setShowExperienceModal(true);
+  };
+
+  const handleExperienceSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      if (editingExperience) {
+        await updateExperience(editingExperience._id, experienceForm);
+        showNotification("Timeline entry updated successfully!");
+      } else {
+        await createExperience(experienceForm);
+        showNotification("Timeline entry created successfully!");
+      }
+      setShowExperienceModal(false);
+      fetchData();
+    } catch (error) {
+      console.error(error);
+      showNotification(error.message || "Failed to save timeline entry", "error");
+    }
+  };
+
+  const handleDeleteExperience = async (id) => {
+    if (window.confirm("Are you sure you want to delete this timeline entry?")) {
+      try {
+        await deleteExperience(id);
+        showNotification("Timeline entry deleted successfully!");
+        fetchData();
+      } catch (error) {
+        showNotification(error.message || "Failed to delete timeline entry", "error");
+      }
+    }
+  };
+
+  // Messages handlers
+  const handleToggleMessageRead = async (msg) => {
+    try {
+      await toggleMessageRead(msg._id, !msg.read);
+      showNotification(`Message marked as ${!msg.read ? "read" : "unread"}!`);
+      setMessages((prev) =>
+        prev.map((m) => (m._id === msg._id ? { ...m, read: !m.read } : m))
+      );
+    } catch (error) {
+      showNotification("Failed to update message status", "error");
+    }
+  };
+
+  const handleViewMessageDetails = async (msg) => {
+    setSelectedMessage(msg);
+    if (!msg.read) {
+      try {
+        await toggleMessageRead(msg._id, true);
+        setMessages((prev) =>
+          prev.map((m) => (m._id === msg._id ? { ...m, read: true } : m))
+        );
+      } catch (error) {
+        console.error("Failed to auto-mark message as read", error);
+      }
+    }
+  };
+
+  const handleDeleteMessage = async (id) => {
+    if (window.confirm("Are you sure you want to delete this message?")) {
+      try {
+        await deleteMessage(id);
+        showNotification("Message deleted successfully!");
+        setMessages((prev) => prev.filter((m) => m._id !== id));
+      } catch (error) {
+        showNotification("Failed to delete message", "error");
+      }
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[oklch(15%_0_0)] text-white font-sans selection:bg-primaryPest selection:text-black">
       {/* Top Header Navigation */}
-      <header className="border-b border-primaryWhite600/10 bg-[oklch(17.76%_0_0)]/80 backdrop-blur sticky top-0 z-40 px-6 lg:px-12 py-4 flex items-center justify-between">
+      <header className="border-b border-primaryWhite600/10 bg-[oklch(17.76%_0_0)]/80 backdrop-blur sticky top-0 z-40 px-6 lg:px-12 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <Link to="/" className="text-primaryWhite600 hover:text-primaryPest transition-colors flex items-center gap-2 text-sm">
             <FaArrowLeft /> View Site
@@ -216,13 +449,13 @@ const AdminDashboard = () => {
         </div>
 
         {/* Tab Controls & Logout */}
-        <div className="flex items-center gap-4">
-          <div className="flex bg-black/40 p-1 rounded-lg border border-primaryWhite600/10">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex flex-wrap bg-black/40 p-1 rounded-lg border border-primaryWhite600/10">
             <button
               onClick={() => setActiveTab("projects")}
-              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-300 ${
+              className={`px-3.5 py-1.5 rounded-md text-xs lg:text-sm font-medium transition-all duration-300 ${
                 activeTab === "projects"
-                  ? "bg-primaryPest text-black shadow-md"
+                  ? "bg-primaryPest text-black shadow-md font-semibold"
                   : "text-primaryWhite600 hover:text-white"
               }`}
             >
@@ -230,13 +463,48 @@ const AdminDashboard = () => {
             </button>
             <button
               onClick={() => setActiveTab("profile")}
-              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-300 ${
+              className={`px-3.5 py-1.5 rounded-md text-xs lg:text-sm font-medium transition-all duration-300 ${
                 activeTab === "profile"
-                  ? "bg-primaryPest text-black shadow-md"
+                  ? "bg-primaryPest text-black shadow-md font-semibold"
                   : "text-primaryWhite600 hover:text-white"
               }`}
             >
-              Profile Content
+              Profile
+            </button>
+            <button
+              onClick={() => setActiveTab("skills")}
+              className={`px-3.5 py-1.5 rounded-md text-xs lg:text-sm font-medium transition-all duration-300 ${
+                activeTab === "skills"
+                  ? "bg-primaryPest text-black shadow-md font-semibold"
+                  : "text-primaryWhite600 hover:text-white"
+              }`}
+            >
+              Skills
+            </button>
+            <button
+              onClick={() => setActiveTab("journey")}
+              className={`px-3.5 py-1.5 rounded-md text-xs lg:text-sm font-medium transition-all duration-300 ${
+                activeTab === "journey"
+                  ? "bg-primaryPest text-black shadow-md font-semibold"
+                  : "text-primaryWhite600 hover:text-white"
+              }`}
+            >
+              Journey
+            </button>
+            <button
+              onClick={() => setActiveTab("messages")}
+              className={`px-3.5 py-1.5 rounded-md text-xs lg:text-sm font-medium transition-all duration-300 flex items-center gap-1.5 ${
+                activeTab === "messages"
+                  ? "bg-primaryPest text-black shadow-md font-semibold"
+                  : "text-primaryWhite600 hover:text-white"
+              }`}
+            >
+              Inbox
+              {messages.filter((m) => !m.read).length > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-primaryPest text-black animate-pulse">
+                  {messages.filter((m) => !m.read).length}
+                </span>
+              )}
             </button>
           </div>
           <button
@@ -320,10 +588,19 @@ const AdminDashboard = () => {
 
                     {/* Project info */}
                     <div className="p-5 flex-grow flex flex-col justify-between">
-                      <div>
+                      <div className="space-y-3">
                         <h3 className="text-lg font-semibold truncate group-hover:text-primaryPest transition-colors duration-300">
                           {project.title}
                         </h3>
+                        {project.tags && project.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {project.tags.map((tag) => (
+                              <span key={tag} className="text-[9px] font-semibold px-2 py-0.5 rounded bg-primaryPest/10 text-primaryPest border border-primaryPest/20 uppercase tracking-widest">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                         <p className="text-primaryWhite600 text-xs mt-2 line-clamp-3 leading-relaxed">
                           {project.subtitle}
                         </p>
@@ -361,7 +638,7 @@ const AdminDashboard = () => {
               </div>
             )}
           </div>
-        ) : (
+        ) : activeTab === "profile" ? (
           /* ================= PROFILE TAB ================= */
           <div>
             <div className="mb-8">
@@ -596,12 +873,261 @@ const AdminDashboard = () => {
               </div>
             </form>
           </div>
+        ) : activeTab === "skills" ? (
+          /* ================= SKILLS TAB ================= */
+          <div>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+              <div>
+                <h2 className="text-2xl font-semibold">Manage Skills</h2>
+                <p className="text-primaryWhite600 text-sm mt-1">
+                  Add, edit, or delete items inside your skills matrix.
+                </p>
+              </div>
+              <button
+                onClick={handleAddSkillClick}
+                className="flex items-center gap-2 bg-primaryPest hover:bg-primaryPest/80 text-black px-5 py-2.5 rounded-lg font-medium transition-all duration-300 shadow-lg shadow-primaryPest/10"
+              >
+                <FaPlus size={14} /> Add Skill
+              </button>
+            </div>
+
+            {skills.length === 0 ? (
+              <div className="border border-dashed border-primaryWhite600/20 rounded-xl p-12 text-center">
+                <p className="text-primaryWhite600 mb-4">No skills found. Add your first skill!</p>
+                <button
+                  onClick={handleAddSkillClick}
+                  className="bg-primaryPest/15 border border-primaryPest/30 text-primaryPest hover:bg-primaryPest/20 px-6 py-2 rounded-lg text-sm font-medium transition-all"
+                >
+                  Create New Skill
+                </button>
+              </div>
+            ) : (
+              <div className="bg-[oklch(17.76%_0_0)] border border-primaryWhite600/10 rounded-xl overflow-hidden shadow-lg">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-sm">
+                    <thead>
+                      <tr className="border-b border-primaryWhite600/10 bg-black/20 text-primaryWhite600 font-semibold uppercase tracking-wider text-[11px]">
+                        <th className="py-4 px-6">Skill Name</th>
+                        <th className="py-4 px-6">Category</th>
+                        <th className="py-4 px-6">Proficiency</th>
+                        <th className="py-4 px-6">Icon Name</th>
+                        <th className="py-4 px-6 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-primaryWhite600/5">
+                      {skills.map((skill) => (
+                        <tr key={skill._id} className="hover:bg-white/5 transition-colors">
+                          <td className="py-4 px-6 font-medium text-white">{skill.name}</td>
+                          <td className="py-4 px-6 text-primaryWhite600">{skill.category}</td>
+                          <td className="py-4 px-6">
+                            <div className="flex items-center gap-3">
+                              <span className="w-8 font-semibold text-primaryPest">{skill.proficiency}%</span>
+                              <div className="w-24 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                <div className="h-full bg-primaryPest rounded-full" style={{ width: `${skill.proficiency}%` }}></div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-4 px-6 font-mono text-xs text-primaryWhite600">{skill.icon}</td>
+                          <td className="py-4 px-6 text-right">
+                            <div className="flex justify-end gap-2">
+                              <button
+                                onClick={() => handleEditSkillClick(skill)}
+                                className="bg-primaryWhite600/10 hover:bg-primaryPest/20 hover:text-primaryPest p-2 rounded text-primaryWhite600 transition-colors"
+                              >
+                                <FaEdit size={13} />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteSkill(skill._id)}
+                                className="bg-primaryWhite600/10 hover:bg-red-500/20 hover:text-red-400 p-2 rounded text-primaryWhite600 transition-colors"
+                              >
+                                <FaTrash size={13} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : activeTab === "journey" ? (
+          /* ================= JOURNEY TIMELINE TAB ================= */
+          <div>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+              <div>
+                <h2 className="text-2xl font-semibold">Manage Journey Timeline</h2>
+                <p className="text-primaryWhite600 text-sm mt-1">
+                  Add, edit, or delete experiences and educational events.
+                </p>
+              </div>
+              <button
+                onClick={handleAddExperienceClick}
+                className="flex items-center gap-2 bg-primaryPest hover:bg-primaryPest/80 text-black px-5 py-2.5 rounded-lg font-medium transition-all duration-300 shadow-lg shadow-primaryPest/10"
+              >
+                <FaPlus size={14} /> Add Event
+              </button>
+            </div>
+
+            {experiences.length === 0 ? (
+              <div className="border border-dashed border-primaryWhite600/20 rounded-xl p-12 text-center">
+                <p className="text-primaryWhite600 mb-4">No events found. Add your first timeline event!</p>
+                <button
+                  onClick={handleAddExperienceClick}
+                  className="bg-primaryPest/15 border border-primaryPest/30 text-primaryPest hover:bg-primaryPest/20 px-6 py-2 rounded-lg text-sm font-medium transition-all"
+                >
+                  Create New Event
+                </button>
+              </div>
+            ) : (
+              <div className="bg-[oklch(17.76%_0_0)] border border-primaryWhite600/10 rounded-xl overflow-hidden shadow-lg">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-sm">
+                    <thead>
+                      <tr className="border-b border-primaryWhite600/10 bg-black/20 text-primaryWhite600 font-semibold uppercase tracking-wider text-[11px]">
+                        <th className="py-4 px-6">Organization</th>
+                        <th className="py-4 px-6">Title</th>
+                        <th className="py-4 px-6">Duration</th>
+                        <th className="py-4 px-6">Type</th>
+                        <th className="py-4 px-6">Order</th>
+                        <th className="py-4 px-6 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-primaryWhite600/5">
+                      {experiences
+                        .sort((a, b) => a.order - b.order)
+                        .map((exp) => (
+                          <tr key={exp._id} className="hover:bg-white/5 transition-colors">
+                            <td className="py-4 px-6 font-medium text-white">{exp.organization}</td>
+                            <td className="py-4 px-6 text-primaryWhite600">{exp.title}</td>
+                            <td className="py-4 px-6 text-primaryWhite600">{exp.duration}</td>
+                            <td className="py-4 px-6">
+                              <span
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                                  exp.type === "experience"
+                                    ? "bg-blue-500/10 text-blue-400 border border-blue-500/20"
+                                    : "bg-purple-500/10 text-purple-400 border border-purple-500/20"
+                                }`}
+                              >
+                                {exp.type}
+                              </span>
+                            </td>
+                            <td className="py-4 px-6 text-primaryWhite600 font-mono">{exp.order || 0}</td>
+                            <td className="py-4 px-6 text-right">
+                              <div className="flex justify-end gap-2">
+                                <button
+                                  onClick={() => handleEditExperienceClick(exp)}
+                                  className="bg-primaryWhite600/10 hover:bg-primaryPest/20 hover:text-primaryPest p-2 rounded text-primaryWhite600 transition-colors"
+                                >
+                                  <FaEdit size={13} />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteExperience(exp._id)}
+                                  className="bg-primaryWhite600/10 hover:bg-red-500/20 hover:text-red-400 p-2 rounded text-primaryWhite600 transition-colors"
+                                >
+                                  <FaTrash size={13} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          /* ================= MESSAGES INBOX TAB ================= */
+          <div>
+            <div className="mb-8">
+              <h2 className="text-2xl font-semibold">Contact Messages Inbox</h2>
+              <p className="text-primaryWhite600 text-sm mt-1">
+                View, read, and manage client messages sent through the Contact Form.
+              </p>
+            </div>
+
+            {messages.length === 0 ? (
+              <div className="border border-dashed border-primaryWhite600/20 rounded-xl p-12 text-center text-primaryWhite600">
+                Inbox is empty. No messages received yet.
+              </div>
+            ) : (
+              <div className="bg-[oklch(17.76%_0_0)] border border-primaryWhite600/10 rounded-xl overflow-hidden shadow-lg">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-sm">
+                    <thead>
+                      <tr className="border-b border-primaryWhite600/10 bg-black/20 text-primaryWhite600 font-semibold uppercase tracking-wider text-[11px]">
+                        <th className="py-4 px-6 w-16">Status</th>
+                        <th className="py-4 px-6">Sender</th>
+                        <th className="py-4 px-6">Message Snippet</th>
+                        <th className="py-4 px-6 w-32">Date</th>
+                        <th className="py-4 px-6 text-right w-40">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-primaryWhite600/5">
+                      {messages.map((msg) => (
+                        <tr key={msg._id} className={`transition-colors ${!msg.read ? "bg-primaryPest/5 hover:bg-primaryPest/10 font-medium" : "hover:bg-white/5"}`}>
+                          <td className="py-4 px-6">
+                            <button
+                              onClick={() => handleToggleMessageRead(msg)}
+                              className={`p-1.5 rounded-full transition-colors ${
+                                !msg.read
+                                  ? "text-primaryPest hover:bg-primaryPest/20"
+                                  : "text-primaryWhite600 hover:bg-white/10"
+                              }`}
+                              title={!msg.read ? "Mark as Read" : "Mark as Unread"}
+                            >
+                              {!msg.read ? <FaEnvelope size={15} /> : <FaEnvelopeOpen size={15} />}
+                            </button>
+                          </td>
+                          <td className="py-4 px-6">
+                            <div className="flex flex-col">
+                              <span className="text-white font-medium">{msg.name}</span>
+                              <span className="text-xs text-primaryWhite600 font-mono mt-0.5">{msg.email}</span>
+                            </div>
+                          </td>
+                          <td className="py-4 px-6 max-w-xs truncate text-primaryWhite600">{msg.message}</td>
+                          <td className="py-4 px-6 text-primaryWhite600 text-xs font-mono">
+                            {new Date(msg.createdAt).toLocaleDateString(undefined, {
+                              month: "short",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </td>
+                          <td className="py-4 px-6 text-right">
+                            <div className="flex justify-end gap-2">
+                              <button
+                                onClick={() => handleViewMessageDetails(msg)}
+                                className="bg-primaryWhite600/10 hover:bg-primaryPest/20 hover:text-primaryPest px-3 py-1.5 rounded text-xs text-primaryWhite600 transition-colors flex items-center gap-1"
+                                title="View Details"
+                              >
+                                <FaEye size={12} /> View
+                              </button>
+                              <button
+                                onClick={() => handleDeleteMessage(msg._id)}
+                                className="bg-primaryWhite600/10 hover:bg-red-500/20 hover:text-red-400 p-2 rounded text-primaryWhite600 transition-colors"
+                                title="Delete"
+                              >
+                                <FaTrash size={12} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </main>
 
       {/* ================= ADD/EDIT PROJECT MODAL ================= */}
       {showProjectModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
           <div className="bg-[oklch(17.76%_0_0)] border border-primaryWhite600/20 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
             <div className="px-6 py-5 border-b border-primaryWhite600/10 flex justify-between items-center bg-black/20">
               <h3 className="text-lg font-bold">
@@ -643,6 +1169,20 @@ const AdminDashboard = () => {
                   rows={3}
                   placeholder="Tell people about this project, stack used, features, etc..."
                   className="w-full bg-black/40 border border-primaryWhite600/20 rounded-lg p-4 text-white outline-none focus:border-primaryPest transition-colors duration-300"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-primaryWhite600 uppercase tracking-wider block">
+                  Tags / Tech Stack (Comma Separated)
+                </label>
+                <input
+                  type="text"
+                  name="tags"
+                  value={projectForm.tags}
+                  onChange={handleProjectFormChange}
+                  placeholder="e.g. React, Tailwind CSS, Node.js"
+                  className="w-full bg-black/40 border border-primaryWhite600/20 rounded-lg px-4 py-2.5 text-white outline-none focus:border-primaryPest transition-colors duration-300"
                 />
               </div>
 
@@ -748,6 +1288,314 @@ const AdminDashboard = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= ADD/EDIT SKILL MODAL ================= */}
+      {showSkillModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
+          <div className="bg-[oklch(17.76%_0_0)] border border-primaryWhite600/20 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+            <div className="px-6 py-5 border-b border-primaryWhite600/10 flex justify-between items-center bg-black/20">
+              <h3 className="text-lg font-bold">
+                {editingSkill ? "Edit Skill Details" : "Add New Skill"}
+              </h3>
+              <button
+                onClick={() => setShowSkillModal(false)}
+                className="text-primaryWhite600 hover:text-white transition-colors text-xl font-medium"
+              >
+                &times;
+              </button>
+            </div>
+
+            <form onSubmit={handleSkillSubmit} className="p-6 space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-primaryWhite600 uppercase tracking-wider block">
+                  Skill Name
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  value={skillForm.name}
+                  onChange={handleSkillFormChange}
+                  required
+                  placeholder="e.g. React"
+                  className="w-full bg-black/40 border border-primaryWhite600/20 rounded-lg px-4 py-2.5 text-white outline-none focus:border-primaryPest transition-colors duration-300"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-primaryWhite600 uppercase tracking-wider block">
+                  Category
+                </label>
+                <select
+                  name="category"
+                  value={skillForm.category}
+                  onChange={handleSkillFormChange}
+                  className="w-full bg-black border border-primaryWhite600/20 rounded-lg px-4 py-2.5 text-white outline-none focus:border-primaryPest transition-colors duration-300"
+                >
+                  <option value="Frontend">Frontend</option>
+                  <option value="Backend">Backend</option>
+                  <option value="Tools & Design">Tools & Design</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex justify-between items-center text-xs font-semibold text-primaryWhite600 uppercase tracking-wider mb-1">
+                  <span>Proficiency Level</span>
+                  <span className="text-primaryPest font-mono text-sm">{skillForm.proficiency}%</span>
+                </div>
+                <input
+                  type="range"
+                  name="proficiency"
+                  min="0"
+                  max="100"
+                  value={skillForm.proficiency}
+                  onChange={handleSkillFormChange}
+                  className="w-full accent-primaryPest"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-primaryWhite600 uppercase tracking-wider block">
+                  React Icon Component Name
+                </label>
+                <input
+                  type="text"
+                  name="icon"
+                  value={skillForm.icon}
+                  onChange={handleSkillFormChange}
+                  required
+                  placeholder="e.g. FaReact or RiTailwindCssFill"
+                  className="w-full bg-black/40 border border-primaryWhite600/20 rounded-lg px-4 py-2.5 text-white outline-none focus:border-primaryPest transition-colors duration-300"
+                />
+                <p className="text-[10px] text-primaryWhite600 italic">
+                  Provide a valid icon name from React Icons package (e.g. FaReact, FaJsSquare, RiTailwindCssFill, SiRedux, FaHtml5).
+                </p>
+              </div>
+
+              <div className="pt-4 border-t border-primaryWhite600/10 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowSkillModal(false)}
+                  className="px-4 py-2 border border-primaryWhite600/20 rounded-lg text-sm text-primaryWhite600 hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bg-primaryPest hover:bg-primaryPest/80 text-black px-6 py-2 rounded-lg text-sm font-semibold transition-all shadow-lg"
+                >
+                  {editingSkill ? "Update Skill" : "Create Skill"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= ADD/EDIT EXPERIENCE TIMELINE MODAL ================= */}
+      {showExperienceModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
+          <div className="bg-[oklch(17.76%_0_0)] border border-primaryWhite600/20 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+            <div className="px-6 py-5 border-b border-primaryWhite600/10 flex justify-between items-center bg-black/20">
+              <h3 className="text-lg font-bold">
+                {editingExperience ? "Edit Timeline Event" : "Add Timeline Event"}
+              </h3>
+              <button
+                onClick={() => setShowExperienceModal(false)}
+                className="text-primaryWhite600 hover:text-white transition-colors text-xl font-medium"
+              >
+                &times;
+              </button>
+            </div>
+
+            <form onSubmit={handleExperienceSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-primaryWhite600 uppercase tracking-wider block">
+                  Organization / University Name
+                </label>
+                <input
+                  type="text"
+                  name="organization"
+                  value={experienceForm.organization}
+                  onChange={handleExperienceFormChange}
+                  required
+                  placeholder="e.g. Softvence Digital Agency"
+                  className="w-full bg-black/40 border border-primaryWhite600/20 rounded-lg px-4 py-2.5 text-white outline-none focus:border-primaryPest transition-colors duration-300"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-primaryWhite600 uppercase tracking-wider block">
+                  Title / Role / Degree
+                </label>
+                <input
+                  type="text"
+                  name="title"
+                  value={experienceForm.title}
+                  onChange={handleExperienceFormChange}
+                  required
+                  placeholder="e.g. Jr. Frontend Developer"
+                  className="w-full bg-black/40 border border-primaryWhite600/20 rounded-lg px-4 py-2.5 text-white outline-none focus:border-primaryPest transition-colors duration-300"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-primaryWhite600 uppercase tracking-wider block">
+                    Duration Period
+                  </label>
+                  <input
+                    type="text"
+                    name="duration"
+                    value={experienceForm.duration}
+                    onChange={handleExperienceFormChange}
+                    required
+                    placeholder="e.g. 2023 - Present"
+                    className="w-full bg-black/40 border border-primaryWhite600/20 rounded-lg px-4 py-2.5 text-white outline-none focus:border-primaryPest transition-colors duration-300"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-primaryWhite600 uppercase tracking-wider block">
+                    Sorting Order
+                  </label>
+                  <input
+                    type="number"
+                    name="order"
+                    value={experienceForm.order}
+                    onChange={handleExperienceFormChange}
+                    required
+                    placeholder="e.g. 1"
+                    className="w-full bg-black/40 border border-primaryWhite600/20 rounded-lg px-4 py-2.5 text-white outline-none focus:border-primaryPest transition-colors duration-300"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-primaryWhite600 uppercase tracking-wider block">
+                  Timeline Event Type
+                </label>
+                <div className="flex gap-4 pt-1">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="type"
+                      value="experience"
+                      checked={experienceForm.type === "experience"}
+                      onChange={handleExperienceFormChange}
+                      className="accent-primaryPest"
+                    />
+                    <span className="text-sm">Work Experience</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="type"
+                      value="education"
+                      checked={experienceForm.type === "education"}
+                      onChange={handleExperienceFormChange}
+                      className="accent-primaryPest"
+                    />
+                    <span className="text-sm">Education</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-primaryWhite600 uppercase tracking-wider block">
+                  Description / Responsibilities
+                </label>
+                <textarea
+                  name="description"
+                  value={experienceForm.description}
+                  onChange={handleExperienceFormChange}
+                  required
+                  rows={4}
+                  placeholder="Summarize your main responsibilities, skills developed, honors earned, etc..."
+                  className="w-full bg-black/40 border border-primaryWhite600/20 rounded-lg p-4 text-white outline-none focus:border-primaryPest transition-colors duration-300"
+                />
+              </div>
+
+              <div className="pt-4 border-t border-primaryWhite600/10 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowExperienceModal(false)}
+                  className="px-4 py-2 border border-primaryWhite600/20 rounded-lg text-sm text-primaryWhite600 hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bg-primaryPest hover:bg-primaryPest/80 text-black px-6 py-2 rounded-lg text-sm font-semibold transition-all shadow-lg"
+                >
+                  {editingExperience ? "Update Event" : "Create Event"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= VIEW MESSAGE DETAILS MODAL ================= */}
+      {selectedMessage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
+          <div className="bg-[oklch(17.76%_0_0)] border border-primaryWhite600/20 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+            <div className="px-6 py-5 border-b border-primaryWhite600/10 flex justify-between items-center bg-black/20">
+              <h3 className="text-lg font-bold">Message Details</h3>
+              <button
+                onClick={() => setSelectedMessage(null)}
+                className="text-primaryWhite600 hover:text-white transition-colors text-xl font-medium"
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-black/20 p-4 border border-primaryWhite600/5 rounded-xl text-sm">
+                <div>
+                  <p className="text-[10px] uppercase font-bold text-primaryWhite600 tracking-wider">From Name</p>
+                  <p className="text-white font-medium mt-0.5">{selectedMessage.name}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase font-bold text-primaryWhite600 tracking-wider">Email Address</p>
+                  <p className="text-primaryPest font-mono mt-0.5">{selectedMessage.email}</p>
+                </div>
+                <div className="md:col-span-2 pt-2 border-t border-primaryWhite600/5">
+                  <p className="text-[10px] uppercase font-bold text-primaryWhite600 tracking-wider">Date Sent</p>
+                  <p className="text-white mt-0.5">
+                    {new Date(selectedMessage.createdAt).toLocaleString(undefined, {
+                      dateStyle: "full",
+                      timeStyle: "short",
+                    })}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs uppercase font-bold text-primaryWhite600 tracking-wider">Message Content</p>
+                <div className="bg-black/30 border border-primaryWhite600/10 rounded-xl p-5 text-sm leading-relaxed text-white/90 whitespace-pre-wrap max-h-60 overflow-y-auto">
+                  {selectedMessage.message}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 border-t border-primaryWhite600/10 pt-4">
+                <a
+                  href={`mailto:${selectedMessage.email}?subject=Regarding your message from Rafi's Portfolio`}
+                  className="bg-primaryPest hover:bg-primaryPest/80 text-black px-5 py-2 rounded-md text-xs font-semibold shadow transition-colors"
+                >
+                  Reply Email
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setSelectedMessage(null)}
+                  className="px-4 py-2 border border-primaryWhite600/20 rounded-md text-xs text-primaryWhite600 hover:text-white transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

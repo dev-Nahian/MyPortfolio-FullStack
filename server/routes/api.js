@@ -6,6 +6,9 @@ import { fileURLToPath } from "url";
 import mongoose from "mongoose";
 import Project from "../models/Project.js";
 import Profile from "../models/Profile.js";
+import Message from "../models/Message.js";
+import Skill from "../models/Skill.js";
+import Experience from "../models/Experience.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -108,7 +111,7 @@ router.get("/projects", async (req, res) => {
 // POST create project
 router.post("/projects", requireAuth, upload.single("image"), async (req, res) => {
   try {
-    const { title, subtitle, link, order } = req.body;
+    const { title, subtitle, link, order, tags } = req.body;
     let imagePath = "";
 
     if (req.file) {
@@ -121,11 +124,19 @@ router.post("/projects", requireAuth, upload.single("image"), async (req, res) =
       return res.status(400).json({ message: "Image is required" });
     }
 
+    let tagsArray = [];
+    if (tags) {
+      tagsArray = typeof tags === "string"
+        ? tags.split(",").map((t) => t.trim()).filter(Boolean)
+        : tags;
+    }
+
     const newProject = new Project({
       title,
       subtitle,
       link,
       image: imagePath,
+      tags: tagsArray,
       order: order ? parseInt(order) : 0,
     });
 
@@ -139,7 +150,7 @@ router.post("/projects", requireAuth, upload.single("image"), async (req, res) =
 // PUT update project
 router.put("/projects/:id", requireAuth, upload.single("image"), async (req, res) => {
   try {
-    const { title, subtitle, link, order } = req.body;
+    const { title, subtitle, link, order, tags } = req.body;
     const project = await Project.findById(req.params.id);
 
     if (!project) {
@@ -150,6 +161,12 @@ router.put("/projects/:id", requireAuth, upload.single("image"), async (req, res
     if (subtitle) project.subtitle = subtitle;
     if (link) project.link = link;
     if (order !== undefined) project.order = parseInt(order);
+
+    if (tags !== undefined) {
+      project.tags = typeof tags === "string"
+        ? tags.split(",").map((t) => t.trim()).filter(Boolean)
+        : tags;
+    }
 
     if (req.file) {
       // Delete old file if it was a local upload
@@ -251,4 +268,171 @@ router.put("/profile", requireAuth, async (req, res) => {
   }
 });
 
+// ==================== SKILLS ROUTES ====================
+// GET all skills
+router.get("/skills", async (req, res) => {
+  try {
+    const skills = await Skill.find().sort({ category: 1, name: 1 });
+    res.json(skills);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// POST create skill
+router.post("/skills", requireAuth, async (req, res) => {
+  try {
+    const { name, category, proficiency, icon } = req.body;
+    const newSkill = new Skill({ name, category, proficiency: parseInt(proficiency), icon });
+    const savedSkill = await newSkill.save();
+    res.status(201).json(savedSkill);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+// PUT update skill
+router.put("/skills/:id", requireAuth, async (req, res) => {
+  try {
+    const { name, category, proficiency, icon } = req.body;
+    const skill = await Skill.findById(req.params.id);
+    if (!skill) {
+      return res.status(404).json({ message: "Skill not found" });
+    }
+    if (name) skill.name = name;
+    if (category) skill.category = category;
+    if (proficiency !== undefined) skill.proficiency = parseInt(proficiency);
+    if (icon) skill.icon = icon;
+    const updatedSkill = await skill.save();
+    res.json(updatedSkill);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+// DELETE skill
+router.delete("/skills/:id", requireAuth, async (req, res) => {
+  try {
+    await Skill.findByIdAndDelete(req.params.id);
+    res.json({ message: "Skill deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ==================== EXPERIENCES ROUTES ====================
+// GET all experiences
+router.get("/experiences", async (req, res) => {
+  try {
+    const experiences = await Experience.find().sort({ order: 1, duration: -1 });
+    res.json(experiences);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// POST create experience
+router.post("/experiences", requireAuth, async (req, res) => {
+  try {
+    const { organization, title, duration, description, type, order } = req.body;
+    const newExperience = new Experience({
+      organization,
+      title,
+      duration,
+      description,
+      type,
+      order: order ? parseInt(order) : 0
+    });
+    const savedExperience = await newExperience.save();
+    res.status(201).json(savedExperience);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+// PUT update experience
+router.put("/experiences/:id", requireAuth, async (req, res) => {
+  try {
+    const { organization, title, duration, description, type, order } = req.body;
+    const exp = await Experience.findById(req.params.id);
+    if (!exp) {
+      return res.status(404).json({ message: "Experience event not found" });
+    }
+    if (organization) exp.organization = organization;
+    if (title) exp.title = title;
+    if (duration) exp.duration = duration;
+    if (description) exp.description = description;
+    if (type) exp.type = type;
+    if (order !== undefined) exp.order = parseInt(order);
+    
+    const updatedExperience = await exp.save();
+    res.json(updatedExperience);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+// DELETE experience
+router.delete("/experiences/:id", requireAuth, async (req, res) => {
+  try {
+    await Experience.findByIdAndDelete(req.params.id);
+    res.json({ message: "Experience deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ==================== MESSAGES ROUTES ====================
+// POST send message (public)
+router.post("/messages", async (req, res) => {
+  try {
+    const { name, email, message } = req.body;
+    if (!name || !email || !message) {
+      return res.status(400).json({ message: "Name, email, and message are required." });
+    }
+    const newMessage = new Message({ name, email, message });
+    const savedMessage = await newMessage.save();
+    res.status(201).json(savedMessage);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+// GET all messages (admin)
+router.get("/messages", requireAuth, async (req, res) => {
+  try {
+    const messages = await Message.find().sort({ createdAt: -1 });
+    res.json(messages);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// PUT toggle read/unread status (admin)
+router.put("/messages/:id/read", requireAuth, async (req, res) => {
+  try {
+    const { read } = req.body;
+    const msg = await Message.findById(req.params.id);
+    if (!msg) {
+      return res.status(404).json({ message: "Message not found" });
+    }
+    msg.read = read !== undefined ? read : !msg.read;
+    const updatedMsg = await msg.save();
+    res.json(updatedMsg);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+// DELETE message (admin)
+router.delete("/messages/:id", requireAuth, async (req, res) => {
+  try {
+    await Message.findByIdAndDelete(req.params.id);
+    res.json({ message: "Message deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 export default router;
+

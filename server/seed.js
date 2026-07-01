@@ -5,6 +5,9 @@ import path from "path";
 import { fileURLToPath } from "url";
 import Project from "./models/Project.js";
 import Profile from "./models/Profile.js";
+import Skill from "./models/Skill.js";
+import Experience from "./models/Experience.js";
+import Message from "./models/Message.js";
 
 dotenv.config();
 
@@ -19,6 +22,9 @@ const seed = async () => {
     // Clear existing data
     await Project.deleteMany({});
     await Profile.deleteMany({});
+    await Skill.deleteMany({});
+    await Experience.deleteMany({});
+    await Message.deleteMany({});
     console.log("Cleared existing data.");
 
     // Ensure uploads directory exists
@@ -139,6 +145,69 @@ const seed = async () => {
 
     await profileData.save();
     console.log("Seeded profile settings.");
+
+    // Seed Skills
+    const skillsData = [
+      { name: "React", category: "Frontend", proficiency: 90, icon: "FaReact" },
+      { name: "JavaScript", category: "Frontend", proficiency: 92, icon: "FaJsSquare" },
+      { name: "Tailwind CSS", category: "Frontend", proficiency: 88, icon: "RiTailwindCssFill" },
+      { name: "HTML5 & CSS3", category: "Frontend", proficiency: 95, icon: "FaHtml5" },
+      { name: "Redux", category: "Frontend", proficiency: 80, icon: "SiRedux" },
+      { name: "Firebase", category: "Tools & Design", proficiency: 80, icon: "IoLogoFirebase" },
+      { name: "Git & GitHub", category: "Tools & Design", proficiency: 85, icon: "FaGitAlt" },
+      { name: "Figma", category: "Tools & Design", proficiency: 75, icon: "IoLogoFigma" },
+      { name: "Node & Express", category: "Backend", proficiency: 70, icon: "FaNodeJs" },
+    ];
+    await Skill.insertMany(skillsData);
+    console.log("Seeded initial skills.");
+
+    // Seed Experience & Education
+    const experiencesData = [
+      {
+        organization: "Softvence Digital Agency",
+        title: "Jr. Frontend Developer",
+        duration: "2023 - Present",
+        description: "Developed and maintained highly responsive, visual, and user-centric web applications utilizing React, TailwindCSS, and modern JS. Collaborated with cross-functional teams to deliver dynamic clients' solutions.",
+        type: "experience",
+        order: 1
+      },
+      {
+        organization: "Web Development Bootcamp",
+        title: "Full Stack Developer Trainee",
+        duration: "2022 - 2023",
+        description: "Intensive training program focused on JavaScript, React.js, Node.js, Express, and MongoDB. Built and deployed full-stack applications with state management and user authentication.",
+        type: "experience",
+        order: 2
+      },
+      {
+        organization: "University of Dhaka",
+        title: "B.Sc. in Computer Science",
+        duration: "2018 - 2022",
+        description: "Graduated with honors in Computer Science & Engineering. Core coursework in Algorithms, Data Structures, Software Engineering, Database Systems, and Web Technologies.",
+        type: "education",
+        order: 3
+      }
+    ];
+    await Experience.insertMany(experiencesData);
+    console.log("Seeded experience timeline.");
+
+    // Seed Messages
+    const messagesData = [
+      {
+        name: "Jane Doe",
+        email: "jane.doe@example.com",
+        message: "Hi Al Nahian, I came across your portfolio and I am very impressed with your projects! We are looking for a remote React developer. Let's schedule a call.",
+        read: false
+      },
+      {
+        name: "Bob Builder",
+        email: "bob@construction.io",
+        message: "Hello! Just testing your portfolio contact form. Works great!",
+        read: true
+      }
+    ];
+    await Message.insertMany(messagesData);
+    console.log("Seeded sample messages.");
 
     console.log("Seeding completed successfully!");
     process.exit(0);

@@ -3,6 +3,7 @@ import About from '../About/About'
 import Project from '../Projects/Project'
 import GetInTouch from '../GetInTouch/GetInTouch'
 import MySkills from '../MySkills/MySkills'
+import MyJourney from '../MyJourney/MyJourney'
 import ContactWithMe from '../ContactWithMe/ContactWithMe'
 
 const Home = () => {
@@ -12,6 +13,7 @@ const Home = () => {
         <About/>
         <Project/>
         <MySkills/>
+        <MyJourney/>
         <ContactWithMe/>
         <GetInTouch/>
     </>
